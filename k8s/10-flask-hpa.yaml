@@ -1,0 +1,23 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: flask-app-hpa
+  namespace: flask-mongo-app
+  labels:
+    app: flask-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: flask-app-deployment
+  # Requirement: Minimum 2 replicas, Maximum 5 replicas
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        # Requirement: Scale the application if CPU utilization exceeds 70%
+        averageUtilization: 70

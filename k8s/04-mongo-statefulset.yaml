@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: flask-mongo-app
+  labels:
+    app: mongodb
+spec:
+  serviceName: "mongodb-service"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:6.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        # Enabling authentication: Official mongo container automatically enables auth
+        # when MONGO_INITDB_ROOT_USERNAME & MONGO_INITDB_ROOT_PASSWORD are supplied.
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGO_INITDB_ROOT_USERNAME
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongo-secret
+              key: MONGO_INITDB_ROOT_PASSWORD
+        - name: MONGO_INITDB_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: mongo-config
+              key: MONGO_INITDB_DATABASE
+        # Resource requests & limits as requested in the assignment:
+        # request: 0.2cpu (200m), 250M (250Mi) ; limit: 0.5cpu (500m), 500M (500Mi)
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "250Mi"
+          limits:
+            cpu: "500m"
+            memory: "500Mi"
+        volumeMounts:
+        # Mounting persistent volume at MongoDB's internal data directory
+        - name: mongodb-data
+          mountPath: /data/db
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --quiet
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - mongosh
+            - --quiet
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: mongodb-data
+        persistentVolumeClaim:
+          claimName: mongodb-pvc

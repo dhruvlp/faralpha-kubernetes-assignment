@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-app-deployment
+  namespace: flask-mongo-app
+  labels:
+    app: flask-app
+spec:
+  # Requirement: Ensure the application is deployed with at least 2 replicas
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-app
+  template:
+    metadata:
+      labels:
+        app: flask-app
+    spec:
+      containers:
+      - name: flask-app
+        image: flask-mongodb-app:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        # Load environment configurations from ConfigMap
+        - name: FLASK_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: FLASK_ENV
+        - name: MONGO_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: MONGO_HOST
+        - name: MONGO_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: MONGO_PORT
+        - name: MONGO_DB
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: MONGO_DB
+        - name: MONGO_AUTH_SOURCE
+          valueFrom:
+            configMapKeyRef:
+              name: flask-config
+              key: MONGO_AUTH_SOURCE
+        # Load sensitive credentials from Secret
+        - name: MONGO_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: MONGO_USERNAME
+        - name: MONGO_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: MONGO_PASSWORD
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: flask-secret
+              key: MONGODB_URI
+        # Resource requests & limits as requested:
+        # request: 0.2cpu (200m), 250M (250Mi) ; limit: 0.5cpu (500m), 500M (500Mi)
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "250Mi"
+          limits:
+            cpu: "500m"
+            memory: "500Mi"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 2
